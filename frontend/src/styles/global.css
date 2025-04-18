@@ -1,0 +1,62 @@
+@tailwind components;
+
+@layer components {
+  /* Inputs */
+  .input {
+    @apply w-full border border-gray-300 rounded px-3 py-2;
+  }
+  .input {
+    @apply w-full border rounded p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400;
+  }
+  
+
+  /* Botones principales */
+  .btn {
+    @apply bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 transition;
+  }
+
+  .btn-green {
+    @apply bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 transition;
+  }
+
+  /* Botón fijo en pantalla (top right o left) */
+  .btn-fixed-top {
+    @apply fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700 transition z-50;
+  }
+
+  /* Botón fijo para "volver al inicio" (puedes cambiarle left/right) */
+  .btn-fixed-left {
+    @apply fixed top-4 left-4 bg-gray-600 text-white px-4 py-2 rounded shadow hover:bg-gray-700 transition z-50;
+  }
+
+  /* Tarjeta visual */
+  .card {
+    @apply bg-white p-6 rounded-xl shadow-md;
+  }
+
+  /* Títulos principales */
+  .title {
+    @apply text-2xl font-bold text-center text-gray-800;
+  }
+
+  /* Logo IA */
+  .logo-ia {
+    @apply h-16 mx-auto mb-4 object-contain;
+  }
+
+  /* Animación fade-in básica */
+  .animate-fade-in {
+    animation: fade-in 0.6s ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
