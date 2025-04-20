@@ -9,7 +9,7 @@ function FormularioTienda() {
     const formData = new FormData(e.target);
 
     try {
-      const response = await fetch('http://localhost:5000/api/crear-tienda', {
+      const response = await fetch('/api/crear-tienda', {
         method: 'POST',
         body: formData,
       });

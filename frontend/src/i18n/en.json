@@ -1,5 +1,7 @@
 {
     "saludo": "Welcome to ParaTodos IA!",
-    "cambiar_idioma": "Change language"
+    "cambiar_idioma": "Change language",
+    "inicio": "Home",
+    "crear_tienda": "Create store"
   }
   
