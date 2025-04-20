@@ -1,12 +1,15 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import ProductCard from './ProductCard';
 
 function VistaTienda() {
   const { slug } = useParams();
   const [datos, setDatos] = useState(null);
+  const [productos, setProductos] = useState([]);
+  const [cargandoProductos, setCargandoProductos] = useState(true);
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/tienda/${slug}`)
+    fetch(`/api/tienda/${slug}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -18,6 +21,24 @@ function VistaTienda() {
       .catch(err => {
         console.error(err);
         alert('Error al cargar la tienda');
+      });
+  }, [slug]);
+
+  // Cargar productos de la tienda
+  useEffect(() => {
+    fetch(`/api/productos/${slug}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setProductos(data.productos);
+        } else {
+          console.error('No se pudieron cargar los productos');
+        }
+        setCargandoProductos(false);
+      })
+      .catch(err => {
+        console.error('Error al cargar productos:', err);
+        setCargandoProductos(false);
       });
   }, [slug]);
 
@@ -37,7 +58,7 @@ function VistaTienda() {
       <div className="max-w-3xl mx-auto bg-white shadow-xl rounded-lg p-8">
         <div className="flex justify-center mb-6">
           <img
-            src={`http://localhost:5000/uploads/${slug}/${datos.logo}`}
+            src={`/uploads/${slug}/${datos.logo}`}
             alt="Logo de la tienda"
             className="h-28 w-auto rounded"
           />
@@ -55,16 +76,17 @@ function VistaTienda() {
           <p><strong>Dirección:</strong> {datos.direccion}</p>
         </div>
 
-        <div className="flex flex-col md:flex-row justify-center gap-4">
+        <div className="flex flex-col md:flex-row justify-center gap-4 mb-6">
+          {/* Botón para visualizar el catálogo en nueva pestaña */}
           <a
-            href={`http://localhost:5000/uploads/${slug}/${datos.catalogo}`}
+            href={`/uploads/${slug}/${datos.catalogo}`}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full text-center shadow-md transition duration-300"
           >
-            Ver catálogo
+            Ver Catálogo
           </a>
-
+          {/* Enlace al panel de administración */}
           <Link
             to={`/dashboard/${slug}`}
             className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full text-center shadow-md transition duration-300"
@@ -72,6 +94,21 @@ function VistaTienda() {
             Ir a mi tienda
           </Link>
         </div>
+        {/* Sección de productos extraídos del catálogo */}
+      <div className="mt-10 max-w-3xl mx-auto">
+        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Productos</h2>
+        {cargandoProductos ? (
+          <p className="text-center">Cargando productos...</p>
+        ) : productos.length === 0 ? (
+          <p className="text-center">No hay productos disponibles.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {productos.map(p => (
+              <ProductCard key={p.id} producto={p} slug={slug} />
+            ))}
+          </div>
+        )}
+      </div>
       </div>
     </div>
   );

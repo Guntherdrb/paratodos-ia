@@ -7,7 +7,7 @@ function DashboardTienda() {
   const [datos, setDatos] = useState(null);
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/tienda/${slug}`)
+    fetch(`/api/tienda/${slug}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
