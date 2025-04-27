@@ -3,163 +3,142 @@ import { Link } from 'react-router-dom';
 
 function PaginaPrincipal() {
   const [modoOscuro, setModoOscuro] = useState(false);
-  const [lang, setLang] = useState('es');
   const [stores, setStores] = useState([]);
-  const [filteredStores, setFilteredStores] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [productosDestacados, setProductosDestacados] = useState([]);
 
   const alternarModo = () => {
     setModoOscuro(!modoOscuro);
     document.documentElement.classList.toggle('dark');
   };
-  const toggleLang = () => {
-    setLang(prev => (prev === 'es' ? 'en' : 'es'));
-    // aquí podrías integrar i18n.changeLanguage si estuviera configurado
-  };
-  const buscarTiendas = () => {
-    const term = searchTerm.toLowerCase();
-    const results = stores.filter(s => s.nombre.toLowerCase().includes(term));
-    setFilteredStores(results);
-  };
 
   useEffect(() => {
-    // Cargar tiendas
     fetch('/api/tiendas')
       .then(res => res.json())
-      .then(data => { if (data.success) setStores(data.tiendas); })
-      .catch(err => console.error('Error cargando tiendas:', err));
-    // Cargar productos destacados
+      .then(data => {
+        if (data.success) setStores(data.tiendas.slice(0, 10));
+      });
     fetch('/api/productos')
       .then(res => res.json())
-      .then(data => { if (data.success) setProductosDestacados(data.productos); })
-      .catch(err => console.error('Error cargando productos:', err));
+      .then(data => {
+        if (data.success) {
+          setProductosDestacados(data.productos.slice(0, 10));
+        }
+      });
   }, []);
 
   return (
     <div className={`${modoOscuro ? 'dark' : ''}`}>
       <div className="font-sans text-gray-800 dark:text-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+
         {/* Barra superior */}
         <header className="bg-white dark:bg-gray-800 shadow fixed w-full top-0 z-50 px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-3xl font-extrabold text-blue-900 dark:text-white">
-              ParaTodos<span className="text-gray-600 dark:text-gray-300">.IA</span>
-            </span>
+          <div className="text-3xl font-extrabold text-blue-900 dark:text-white">
+            <img src="/logopartodosia.png" alt="ParaTodos.IA" className="h-10" />
           </div>
           <nav className="flex gap-4 items-center text-sm">
             <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-300">Inicio</Link>
             <Link to="/crear-tienda" className="hover:text-blue-600 dark:hover:text-blue-300">Crear Tienda</Link>
             <Link to="/login" className="hover:text-blue-600 dark:hover:text-blue-300">Login</Link>
-            <button className="px-2 py-1 border rounded hover:bg-gray-100 dark:hover:bg-gray-700">🌐 ES | EN</button>
-            <button onClick={alternarModo} className="px-2 py-1 border rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+            <button onClick={alternarModo} className="border px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
               {modoOscuro ? '☀️ Claro' : '🌙 Oscuro'}
             </button>
-            <button className="hover:text-blue-600 dark:hover:text-blue-300">❓ Ayuda</button>
           </nav>
         </header>
 
-        <main className="pt-28 px-4 sm:px-10 max-w-6xl mx-auto">
-          {/* Banner mensaje */}
-          <section className="text-center mb-10">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-3">
-              Crea tu tienda en minutos con IA
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Sube tu catálogo en PDF organizado y obtén tu tienda online personalizada
-            </p>
-            <Link
-              to="/crear-tienda"
-              className="bg-blue-600 text-white px-6 py-2 rounded-full shadow hover:bg-blue-700 transition"
-            >
-              Crear mi tienda ahora
-            </Link>
-          </section>
+    
+            
 
-          {/* Buscador de tiendas */}
-          <section className="mb-10">
-            <h2 className="text-center text-lg font-medium mb-3">🔍 Buscar Tiendas</h2>
-            <div className="flex justify-center items-center gap-2">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Buscar tiendas..."
-                className="w-full max-w-xl px-4 py-2 border rounded-l dark:bg-gray-800 dark:border-gray-600"
-              />
-              <button
-                onClick={buscarTiendas}
-                className="bg-blue-600 text-white px-4 py-2 rounded-r hover:bg-blue-700 transition"
-              >
-                🔎 Buscar
-              </button>
+        <main className="pt-28 max-w-7xl mx-auto px-4">
+
+          {/* Carrusel de banners */}
+          <section className="relative h-[450px] mb-12 rounded-lg overflow-hidden shadow-lg">
+          
+            
+            <img
+              src="/banner1.png"
+              alt="Banner 1"
+              className="absolute inset-0 animate-fade1 object-cover w-full h-full"
+            />
+            <img
+              src="/banner2.png"
+              alt="Banner 2"
+              className="absolute inset-0 animate-fade2 object-cover w-full h-full"
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-30 flex flex-col justify-center items-center text-white text-center p-6">
+              
+            <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+                Crea tu tienda online en minutos con IA.  Sube tu Catalogo de Productos en PDF y te sorprederas 
+                
+              </h1>
+              
+              <Link to="/crear-tienda" className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-full text-white font-semibold">
+                Crear Tienda con IA
+              </Link>
             </div>
-            {filteredStores.length > 0 && (
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {filteredStores.map(store => (
-                  <Link
-                    key={store.slug}
-                    to={`/tienda/${store.slug}`}
-                    className="flex items-center gap-2 bg-white dark:bg-gray-800 p-4 rounded shadow hover:shadow-md"
-                  >
-                    {store.logo && (
-                      <img src={store.logo} alt={store.nombre} className="h-10 w-10 object-cover rounded-full" />
-                    )}
-                    <span className="font-medium">{store.nombre}</span>
-                  </Link>
-                ))}
-              </div>
-            )}
           </section>
 
-          {/* Productos destacados */}
-          <section className="mb-14">
-            <h2 className="text-2xl font-semibold mb-4">Productos destacados</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {/* Productos populares */}
+          <section className="mb-12">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-900 dark:text-white">Productos más populares</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
               {productosDestacados.map(p => (
-                <div key={p.id} className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded p-4 shadow">
-                  {/* Enlace al detalle de producto */}
-                  <Link to={`/producto/${p.id}`} className="block text-center hover:opacity-90 transition">
-                    {p.imagen && (
-                      <img src={p.imagen} alt={p.nombre} className="mx-auto h-32 mb-3 object-cover rounded" />
-                    )}
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">{p.nombre}</h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-2">${p.precio}</p>
+                <div key={p.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow hover:shadow-lg transition-shadow">
+                  <Link to={`/producto/${p.id}`}>
+                    {p.imagen && <img src={p.imagen} alt={p.nombre} className="w-full h-40 object-cover" />}
+                    <div className="p-3">
+                      <h3 className="text-base font-semibold mb-1 text-center">{p.nombre}</h3>
+                      <p className="text-center text-gray-600 dark:text-gray-400">${p.precio}</p>
+                    </div>
                   </Link>
-                  {/* Botón de compra por WhatsApp */}
-                  {p.telefono ? (
-                    <a
-                      href={`https://wa.me/${p.telefono.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full block bg-[#25D366] text-white px-4 py-2 rounded-full text-sm shadow hover:opacity-90 transition text-center"
-                    >
-                      Comprar por WhatsApp
-                    </a>
-                  ) : (
-                    <button className="w-full bg-gray-400 text-white px-4 py-2 rounded-full text-sm shadow cursor-not-allowed">
-                      Sin WhatsApp
-                    </button>
-                  )}
+                  <a
+                    href={`https://wa.me/${p.telefono || ''}`}
+                    className="block text-center bg-[#25D366] text-white py-2 font-medium hover:opacity-90 transition"
+                    target="_blank" rel="noopener noreferrer"
+                  >
+                    Comprar por WhatsApp
+                  </a>
                 </div>
               ))}
             </div>
           </section>
 
           {/* Tiendas destacadas */}
-          <section className="mb-10">
-            <h2 className="text-2xl font-semibold mb-4">Tiendas destacadas</h2>
-            <div className="flex flex-wrap justify-center gap-4">
+          <section className="mb-16">
+            <h2 className="text-2xl font-semibold mb-6 text-gray-900 dark:text-white">Tiendas destacadas</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
               {stores.map(store => (
                 <Link
                   key={store.slug}
                   to={`/tienda/${store.slug}`}
-                  className="flex items-center gap-2 bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-full px-6 py-2 shadow hover:shadow-md text-gray-700 dark:text-gray-200 font-medium"
+                  className="flex flex-col items-center bg-white dark:bg-gray-800 p-4 rounded-lg shadow hover:shadow-md transition"
                 >
                   {store.logo && (
-                    <img src={store.logo} alt={store.nombre} className="h-8 w-8 object-cover rounded-full" />
+                    <img src={store.logo} alt={store.nombre} className="w-24 h-24 object-cover rounded-full mb-3" />
                   )}
-                  <span>{store.nombre}</span>
+                  <span className="font-semibold text-center text-gray-800 dark:text-gray-200">{store.nombre}</span>
                 </Link>
+              ))}
+            </div>
+          </section>
+
+          {/* Marcas destacadas */}
+          <section className="bg-gray-100 dark:bg-gray-800 py-8 px-4 rounded-lg shadow">
+            <h3 className="text-center text-lg font-medium mb-4 text-gray-700 dark:text-gray-300">
+              Marcas disponibles en nuestra plataforma
+            </h3>
+            <div className="flex flex-wrap justify-center gap-6">
+              {[
+                'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg',
+                'https://upload.wikimedia.org/wikipedia/commons/8/88/Samet_logo.png',
+                'https://via.placeholder.com/120x60?text=Casa+Bonita',
+                'https://via.placeholder.com/120x60?text=DecoHome'
+              ].map((url, i) => (
+                <img
+                  key={i}
+                  src={url}
+                  alt={`Marca destacada ${i}`}
+                  className="h-14 object-contain grayscale hover:grayscale-0 transition"
+                />
               ))}
             </div>
           </section>
