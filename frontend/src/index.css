@@ -2,24 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Animación básica de fade-in */
 @keyframes fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  
-  .animate-fade-in {
-    animation: fade-in 0.7s ease-out;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-  
-  @layer components {
-    .input {
-      @apply w-full border border-gray-300 rounded px-3 py-2;
-    }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.7s ease-out;
+}
+
+/* Animación para carrusel de banners */
+@keyframes carousel-fade {
+  0%, 100% {
+    opacity: 1;
+    z-index: 10;
   }
-  @import './styles/global.css';
+  25% {
+    opacity: 0;
+    z-index: 0;
+  }
+  50% {
+    opacity: 0;
+    z-index: 0;
+  }
+  75% {
+    opacity: 0;
+    z-index: 0;
+  }
+}
+
+.animate-fade-carousel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  animation: carousel-fade 10s infinite ease-in-out;
+}
+
+.animate-fade-carousel:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.animate-fade-carousel:nth-child(2) {
+  animation-delay: 5s;
+}
+
+/* Componentes reutilizables */
+@layer components {
+  .input {
+    @apply w-full border border-gray-300 rounded px-3 py-2;
+  }
+}
+
+/* Importaciones adicionales si tienes estilos personalizados */
+@import './styles/global.css';
