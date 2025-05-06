@@ -34,8 +34,11 @@ const Navbar = () => {
   return (
     <header className="bg-white dark:bg-gray-800 shadow fixed w-full top-0 z-50 transition-colors">
       <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-        <Link to="/" className="text-xl font-bold text-blue-600 dark:text-blue-400 flex items-center">
-          ParaTodos IA
+        <Link to="/" className="flex items-center space-x-2">
+          <img src="/logopartodosia.png" alt="ParaTodos IA" className="h-8 w-auto" />
+          <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+            ParaTodos.IA
+          </span>
         </Link>
         <nav className="flex items-center space-x-4">
           <Link to="/" className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400">

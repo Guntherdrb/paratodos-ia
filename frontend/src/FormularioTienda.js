@@ -30,10 +30,10 @@ function FormularioTienda() {
   if (tienda) return <ConfirmacionTienda tienda={tienda} />;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 px-4">
+    <div className="h-full flex items-center justify-center bg-gray-100 dark:bg-gray-900 px-4 py-8">
       <form
         onSubmit={crearTienda}
-        className="bg-white rounded-xl shadow-xl p-8 max-w-2xl w-full space-y-5"
+        className="bg-white rounded-xl shadow-xl p-8 max-w-md w-full space-y-5 max-h-full overflow-y-auto"
       >
         <h1 className="text-3xl font-bold text-center text-gray-800">Crear nueva tienda</h1>
 

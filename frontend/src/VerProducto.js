@@ -19,8 +19,8 @@ function VerProducto() {
 
   if (!producto) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <span className="text-gray-500 text-lg">Cargando producto...</span>
+      <div className="flex items-center justify-center h-screen bg-gray-100 dark:bg-gray-900">
+        <span className="text-gray-500 dark:text-gray-400 text-lg">Cargando producto...</span>
       </div>
     );
   }
@@ -43,7 +43,7 @@ function VerProducto() {
   };
 
   return (
-    <div className="bg-gray-50 min-h-screen py-10">
+    <div className="bg-gray-100 dark:bg-gray-900 min-h-screen py-10">
       <div className="container mx-auto px-6 lg:px-8">
         {/* Enlace a la tienda */}
         {producto.tienda && (

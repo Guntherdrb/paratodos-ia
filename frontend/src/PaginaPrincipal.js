@@ -2,14 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 function PaginaPrincipal() {
-  const [modoOscuro, setModoOscuro] = useState(false);
   const [stores, setStores] = useState([]);
   const [productosDestacados, setProductosDestacados] = useState([]);
 
-  const alternarModo = () => {
-    setModoOscuro(!modoOscuro);
-    document.documentElement.classList.toggle('dark');
-  };
 
   useEffect(() => {
     fetch('/api/tiendas')
@@ -25,46 +20,32 @@ function PaginaPrincipal() {
         }
       });
   }, []);
+  // Carousel state
+  const carouselImages = ['/banner1.png', '/banner2.png']; // add more images as needed
+  const [currentSlide, setCurrentSlide] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % carouselImages.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [carouselImages.length]);
 
   return (
-    <div className={`${modoOscuro ? 'dark' : ''}`}>
-      <div className="font-sans text-gray-800 dark:text-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    <main className="font-sans text-gray-800 dark:text-gray-100 dark:bg-gray-900 transition-colors duration-300">
 
-        {/* Barra superior */}
-        <header className="bg-white dark:bg-gray-800 shadow fixed w-full top-0 z-50 px-6 py-4 flex justify-between items-center">
-          <div className="text-3xl font-extrabold text-blue-900 dark:text-white">
-            <img src="/logopartodosia.png" alt="ParaTodos.IA" className="h-10" />
-          </div>
-          <nav className="flex gap-4 items-center text-sm">
-            <Link to="/" className="hover:text-blue-600 dark:hover:text-blue-300">Inicio</Link>
-            <Link to="/crear-tienda" className="hover:text-blue-600 dark:hover:text-blue-300">Crear Tienda</Link>
-            <Link to="/login" className="hover:text-blue-600 dark:hover:text-blue-300">Login</Link>
-            <button onClick={alternarModo} className="border px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
-              {modoOscuro ? '☀️ Claro' : '🌙 Oscuro'}
-            </button>
-          </nav>
-        </header>
-
-    
-            
-
-        <main className="pt-28 max-w-7xl mx-auto px-4">
-
-          {/* Carrusel de banners */}
-          <section className="relative h-[450px] mb-12 rounded-lg overflow-hidden shadow-lg">
-          
-            
-            <img
-              src="/banner1.png"
-              alt="Banner 1"
-              className="absolute inset-0 animate-fade1 object-cover w-full h-full"
-            />
-            <img
-              src="/banner2.png"
-              alt="Banner 2"
-              className="absolute inset-0 animate-fade2 object-cover w-full h-full"
-            />
-            <div className="absolute inset-0 bg-black bg-opacity-30 flex flex-col justify-center items-center text-white text-center p-6">
+      {/* Hero section */}
+      <section className="relative h-screen w-full overflow-hidden">
+        {carouselImages.map((src, index) => (
+          <img
+            key={index}
+            src={src}
+            alt={`Banner ${index + 1}`}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+              index === currentSlide ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+        ))}
+        <div className="absolute inset-0 bg-black bg-opacity-30 flex flex-col justify-center items-center text-white text-center p-6">
               
             <h1 className="text-4xl sm:text-5xl font-bold mb-4">
                 Crea tu tienda online en minutos con IA.  Sube tu Catalogo de Productos en PDF y te sorprederas 
@@ -77,10 +58,12 @@ function PaginaPrincipal() {
             </div>
           </section>
 
-          {/* Productos populares */}
-          <section className="mb-12">
+      {/* Main content container */}
+      <div className="pt-12 max-w-7xl mx-auto px-4">
+        {/* Productos más populares */}
+        <section className="mb-12">
             <h2 className="text-2xl font-semibold mb-6 text-gray-900 dark:text-white">Productos más populares</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
               {productosDestacados.map(p => (
                 <div key={p.id} className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow hover:shadow-lg transition-shadow">
                   <Link to={`/producto/${p.id}`}>
@@ -105,7 +88,7 @@ function PaginaPrincipal() {
           {/* Tiendas destacadas */}
           <section className="mb-16">
             <h2 className="text-2xl font-semibold mb-6 text-gray-900 dark:text-white">Tiendas destacadas</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
               {stores.map(store => (
                 <Link
                   key={store.slug}
@@ -142,9 +125,8 @@ function PaginaPrincipal() {
               ))}
             </div>
           </section>
-        </main>
-      </div>
-    </div>
+        </div>
+      </main>
   );
 }
 

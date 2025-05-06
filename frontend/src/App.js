@@ -10,13 +10,15 @@ import AgregarProducto from './AgregarProducto';
 import EditarProducto from './EditarProducto';
 import VerProducto from './VerProducto';
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 
 function Layout() {
   return (
     <>
       <Navbar />
-      <div className="pt-20">
-        <Routes>
+      <div className="pt-20 flex flex-col h-screen">
+        <div className="flex-grow">
+          <Routes>
           <Route path="/" element={<PaginaPrincipal />} />
           <Route path="/crear-tienda" element={<FormularioTienda />} />
           <Route path="/tienda/:slug" element={<VistaTienda />} />
@@ -25,7 +27,9 @@ function Layout() {
           <Route path="/dashboard/:slug/productos/nuevo" element={<AgregarProducto />} />
           <Route path="/dashboard/:slug/productos/editar/:id" element={<EditarProducto />} />
           <Route path="/producto/:id" element={<VerProducto />} />
-        </Routes>
+          </Routes>
+        </div>
+        <Footer />
       </div>
     </>
   );

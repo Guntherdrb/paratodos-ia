@@ -45,7 +45,7 @@ function DashboardTienda() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-blue-100 p-4 rounded-lg text-center">
             <p className="text-gray-700 font-medium">Pedidos (leads)</p>
             <p className="text-3xl font-bold text-blue-700">0</p>

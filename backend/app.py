@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 import os
 import datetime
 import json
+import ast
 import openai
 from PyPDF2 import PdfReader
 from dotenv import load_dotenv
@@ -114,12 +115,20 @@ def crear_tienda():
             chat = client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "Extrae una lista JSON de productos del catálogo con formato [{'name': '...', 'description': '...', 'price': '...'}]"},
+                    {"role": "system", "content": "Extrae únicamente una lista en formato JSON de productos del catálogo con este esquema: [{\"name\": \"...\", \"description\": \"...\", \"price\": \"...\"}]. Devuelve solo el JSON, sin texto adicional."},
                     {"role": "user", "content": full_text}
                 ]
             )
             content = chat.choices[0].message.content
-            products = json.loads(content)
+            # Intentar cargar productos desde JSON, con fallback a Python literal
+            try:
+                products = json.loads(content)
+            except json.JSONDecodeError:
+                try:
+                    products = ast.literal_eval(content)
+                except Exception as parse_err:
+                    print("❌ Error al parsear JSON de productos:", parse_err)
+                    products = []
 
             # Crear productos extraídos: asignar imagen placeholder por defecto
             placeholder_img = os.getenv("PLACEHOLDER_IMG_URL", "https://via.placeholder.com/200")
