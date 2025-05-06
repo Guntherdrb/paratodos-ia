@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function PaginaPrincipal() {
   const [stores, setStores] = useState([]);
@@ -30,8 +30,81 @@ function PaginaPrincipal() {
     return () => clearInterval(interval);
   }, [carouselImages.length]);
 
+  // Search state for intelligent search
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState({ tiendas: [], productos: [] });
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const handleSearchChange = (e) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+    if (query.length > 1) {
+      fetch(`/api/buscar?q=${encodeURIComponent(query)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setSearchResults({ tiendas: data.tiendas, productos: data.productos });
+            setShowSuggestions(true);
+          }
+        })
+        .catch(err => {
+          console.error('Error al buscar:', err);
+          setShowSuggestions(false);
+        });
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleSuggestionClick = (type, item) => {
+    setSearchQuery('');
+    setShowSuggestions(false);
+    if (type === 'tienda') {
+      navigate(`/tienda/${item.slug}`);
+    } else {
+      navigate(`/producto/${item.id}`);
+    }
+  };
+
   return (
     <main className="font-sans text-gray-800 dark:text-gray-100 dark:bg-gray-900 transition-colors duration-300">
+      {/* Search section */}
+      <div className="bg-white dark:bg-gray-800 p-4 shadow-md">
+        <div className="max-w-7xl mx-auto relative">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={handleSearchChange}
+            placeholder="Buscar productos o tiendas..."
+            className="w-full p-3 border rounded-lg focus:outline-none focus:ring focus:border-blue-300 text-black placeholder-black"
+          />
+          {showSuggestions && (
+            <div className="absolute left-0 right-0 mt-1 bg-white dark:bg-gray-800 border rounded-lg max-h-60 overflow-y-auto z-50">
+              {searchResults.tiendas.map(store => (
+                <div
+                  key={`store-${store.slug}`}
+                  onClick={() => handleSuggestionClick('tienda', store)}
+                  className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center gap-2"
+                >
+                  <span className="font-semibold">🏬</span>
+                  <span>{store.nombre}</span>
+                </div>
+              ))}
+              {searchResults.productos.map(prod => (
+                <div
+                  key={`prod-${prod.id}`}
+                  onClick={() => handleSuggestionClick('producto', prod)}
+                  className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center gap-2"
+                >
+                  <span className="font-semibold">📦</span>
+                  <span>{prod.nombre}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Hero section */}
       <section className="relative h-screen w-full overflow-hidden">
