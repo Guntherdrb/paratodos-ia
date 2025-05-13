@@ -1,12 +1,16 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, inspect
 from werkzeug.utils import secure_filename
 import os
 import datetime
 import json
 import ast
+import re
+from io import BytesIO
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 import openai
 from PyPDF2 import PdfReader
 from dotenv import load_dotenv
@@ -48,6 +52,7 @@ class Producto(db.Model):
     tienda_id = db.Column(db.Integer, db.ForeignKey('tienda.id'))
     relacionados = db.Column(db.Text)
     imagen = db.Column(db.String(200))
+    imagenes = db.Column(db.Text, nullable=True)
 
 class Lead(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -67,6 +72,14 @@ class Customer(db.Model):
 
 with app.app_context():
     db.create_all()
+    # Añadir columna 'imagenes' a Producto si no existe
+    inspector = inspect(db.engine)
+    cols = [c['name'] for c in inspector.get_columns('producto')]
+    if 'imagenes' not in cols:
+        # Agregar columna 'imagenes' para múltiples imágenes por producto
+        from sqlalchemy import text
+        db.session.execute(text('ALTER TABLE producto ADD COLUMN imagenes TEXT'))
+        db.session.commit()
 
 # ───── ENDPOINTS ─────
 
@@ -230,6 +243,7 @@ def obtener_productos(slug):
     lista = []
     for p in productos:
         # Determinar URL de imagen: si es URL externa, usarla; si es filename, servir desde uploads
+        # Determinar URL primaria de imagen
         if p.imagen:
             if p.imagen.startswith('http'):
                 img_url = p.imagen
@@ -237,13 +251,29 @@ def obtener_productos(slug):
                 img_url = f"/uploads/{slug}/{p.imagen}"
         else:
             img_url = ''
+        # Manejar múltiples imágenes
+        imagenes_list = []
+        if p.imagenes:
+            try:
+                files = json.loads(p.imagenes)
+            except:
+                files = []
+            for fname in files:
+                if fname.startswith('http'):
+                    imagenes_list.append(fname)
+                else:
+                    imagenes_list.append(f"/uploads/{slug}/{fname}")
+        # Fallback a imagen individual
+        if not imagenes_list and img_url:
+            imagenes_list = [img_url]
         lista.append({
             "id": p.id,
             "nombre": p.nombre,
             "descripcion": p.descripcion,
             "precio": p.precio,
             "relacionados": p.relacionados,
-            "imagen": img_url
+            "imagen": img_url,
+            "imagenes": imagenes_list
         })
 
     return jsonify({ "success": True, "productos": lista })
@@ -265,8 +295,22 @@ def obtener_producto(id):
             img_url = f"/uploads/{slug}/{producto.imagen}"
     else:
         img_url = ''
-    # Incluir datos de la tienda a la que pertenece el producto
-    # Incluir datos de la tienda a la que pertenece el producto, incluidas redes sociales
+    # Manejar múltiples imágenes para el producto
+    imagenes_list = []
+    if producto.imagenes:
+        try:
+            files = json.loads(producto.imagenes)
+        except:
+            files = []
+        for fname in files:
+            if fname.startswith('http'):
+                imagenes_list.append(fname)
+            else:
+                imagenes_list.append(f"/uploads/{slug}/{fname}")
+    # Fallback a imagen individual
+    if not imagenes_list and producto.imagen:
+        imagenes_list = [img_url]
+    # Incluir datos de la tienda a la que pertenece el producto (incluidas redes sociales)
     tienda_info = {
         "nombre": tienda.nombre if tienda else None,
         "slug": slug,
@@ -282,6 +326,7 @@ def obtener_producto(id):
             "precio": producto.precio,
             "relacionados": producto.relacionados,
             "imagen": img_url,
+            "imagenes": imagenes_list,
             "tienda": tienda_info
         }
     })
@@ -299,16 +344,28 @@ def editar_producto(id):
     producto.relacionados = data.get('relacionados', '')
     slug = data['slug']
 
-    if 'imagen' in request.files:
-        imagen = request.files['imagen']
-        if imagen.filename:
-            tienda = Tienda.query.filter_by(slug=slug).first()
-            if tienda:
-                tienda_path = os.path.join(app.config['UPLOAD_FOLDER'], slug)
-                os.makedirs(tienda_path, exist_ok=True)
-                imagen_filename = secure_filename(imagen.filename)
-                imagen.save(os.path.join(tienda_path, imagen_filename))
-                producto.imagen = imagen_filename
+    # Manejar actualización de múltiples imágenes (hasta 5)
+    existing_imagenes = []
+    if producto.imagenes:
+        try:
+            existing_imagenes = json.loads(producto.imagenes)
+        except:
+            existing_imagenes = []
+    # Si se suben nuevas imágenes, reemplazar lista
+    if 'imagenes' in request.files:
+        files = request.files.getlist('imagenes')
+        tienda = Tienda.query.filter_by(slug=slug).first()
+        if tienda:
+            tienda_path = os.path.join(app.config['UPLOAD_FOLDER'], slug)
+            os.makedirs(tienda_path, exist_ok=True)
+            new_list = []
+            for img in files[:5]:
+                if img and img.filename:
+                    filename = secure_filename(img.filename)
+                    img.save(os.path.join(tienda_path, filename))
+                    new_list.append(filename)
+            producto.imagenes = json.dumps(new_list)
+            producto.imagen = new_list[0] if new_list else ''
 
     db.session.commit()
     return jsonify({ "success": True, "message": "Producto actualizado" })
@@ -327,14 +384,25 @@ def crear_producto():
         if not tienda:
             return jsonify({"success": False, "error": "Tienda no encontrada"}), 404
 
-        imagen_filename = ''
-        if 'imagen' in request.files:
-            imagen = request.files['imagen']
-            if imagen.filename:
+        # Manejar múltiples imágenes (hasta 5)
+        imagenes_list = []
+        if 'imagenes' in request.files:
+            files = request.files.getlist('imagenes')
+            tienda_path = os.path.join(UPLOAD_FOLDER, slug)
+            os.makedirs(tienda_path, exist_ok=True)
+            for img in files[:5]:
+                if img and img.filename:
+                    filename = secure_filename(img.filename)
+                    img.save(os.path.join(tienda_path, filename))
+                    imagenes_list.append(filename)
+        elif 'imagen' in request.files:
+            img = request.files['imagen']
+            if img and img.filename:
                 tienda_path = os.path.join(UPLOAD_FOLDER, slug)
                 os.makedirs(tienda_path, exist_ok=True)
-                imagen_filename = secure_filename(imagen.filename)
-                imagen.save(os.path.join(tienda_path, imagen_filename))
+                filename = secure_filename(img.filename)
+                img.save(os.path.join(tienda_path, filename))
+                imagenes_list.append(filename)
 
         nuevo_producto = Producto(
             nombre=nombre,
@@ -342,7 +410,8 @@ def crear_producto():
             precio=precio,
             relacionados=relacionados,
             tienda_id=tienda.id,
-            imagen=imagen_filename
+            imagen=imagenes_list[0] if imagenes_list else '',
+            imagenes=json.dumps(imagenes_list)
         )
 
         db.session.add(nuevo_producto)
@@ -381,12 +450,28 @@ def listar_todos_productos():
         tienda = Tienda.query.get(p.tienda_id)
         slug = tienda.slug if tienda else ''
         # Determinar URL de imagen: externa o uploads
+        # Determinar URL primaria de imagen
         if p.imagen and p.imagen.startswith('http'):
             img_url = p.imagen
         elif p.imagen:
             img_url = f"/uploads/{slug}/{p.imagen}"
         else:
             img_url = ''
+        # Manejar múltiples imágenes
+        imagenes_list = []
+        if p.imagenes:
+            try:
+                files = json.loads(p.imagenes)
+            except:
+                files = []
+            for fname in files:
+                if fname.startswith('http'):
+                    imagenes_list.append(fname)
+                else:
+                    imagenes_list.append(f"/uploads/{slug}/{fname}")
+        # Fallback a imagen individual
+        if not imagenes_list and img_url:
+            imagenes_list = [img_url]
         # Incluir teléfono e Instagram de la tienda asociada
         telefono = tienda.telefono if tienda and tienda.telefono else ''
         instagram = tienda.instagram if tienda and tienda.instagram else ''
@@ -397,6 +482,7 @@ def listar_todos_productos():
             'precio': p.precio,
             'relacionados': p.relacionados,
             'imagen': img_url,
+            'imagenes': imagenes_list,
             'slug': slug,
             'telefono': telefono,
             'instagram': instagram
@@ -558,6 +644,302 @@ def crear_cliente(slug):
         'email': nuevo.email,
         'fecha': nuevo.fecha.isoformat()
     }})
+    
+@app.route('/api/leads/cliente', methods=['GET'])
+def obtener_leads_por_cliente():
+    # Obtener leads consultados por un cliente (por nombre)
+    cliente = request.args.get('cliente')
+    if not cliente:
+        return jsonify({"success": False, "error": "Parámetro 'cliente' es obligatorio"}), 400
+    # Buscar leads que coincidan exactamente con el nombre de cliente
+    leads = Lead.query.filter(func.lower(Lead.cliente) == cliente.lower()).order_by(Lead.fecha.desc()).all()
+    resultados = []
+    for l in leads:
+        tienda = Tienda.query.get(l.tienda_id)
+        resultados.append({
+            'id': l.id,
+            'producto': l.producto,
+            'fecha': l.fecha.isoformat(),
+            'estado': l.estado,
+            'tienda_slug': tienda.slug if tienda else None,
+            'tienda_nombre': tienda.nombre if tienda else None
+        })
+    return jsonify({"success": True, "leads": resultados})
+
+@app.route('/api/ia/generar-imagen', methods=['POST'])
+def generar_imagen():
+    # Aceptar tanto JSON como form-data
+    if request.is_json:
+        data = request.get_json(silent=True) or {}
+        prompt = data.get('prompt')
+        reference = None
+    else:
+        prompt = request.form.get('prompt')
+        reference = request.files.get('reference')
+    if not prompt:
+        return jsonify({"success": False, "error": "El prompt es obligatorio"}), 400
+    try:
+        # Inicializar cliente OpenAI
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return jsonify({"success": False, "error": "API key no definida"}), 500
+        openai.api_key = api_key
+        client = openai.OpenAI(api_key=api_key)
+        # Generar o editar imagen según referencia
+        if reference:
+            temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_ref.png')
+            reference.save(temp_path)
+            response = client.images.edit(
+                # Usar el modelo de imagen más reciente de OpenAI (DALL·E 3)
+                model="dall-e-3",
+                image=open(temp_path, 'rb'),
+                prompt=prompt,
+                size="1024x1024",
+                n=1
+            )
+        else:
+            response = client.images.generate(
+                # Usar el modelo de imagen más reciente de OpenAI (DALL·E 3)
+                model="dall-e-3",
+                prompt=prompt,
+                size="1024x1024",
+                n=1
+            )
+        urls = [d.url for d in response.data]
+        return jsonify({"success": True, "images": urls})
+    except Exception as e:
+        print("Error IA generar imagen:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/ia/editar-imagen', methods=['POST'])
+def editar_imagen():
+    prompt = request.form.get('prompt')
+    image = request.files.get('image')
+    mask_file = request.files.get('mask')
+    if not prompt or not image:
+        return jsonify({"success": False, "error": "Imagen y prompt son obligatorios"}), 400
+    try:
+        # Guardar temporal la imagen a editar
+        temp_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_edit.png')
+        image.save(temp_path)
+        # Guardar temporal la máscara si existe
+        if mask_file:
+            mask_path = os.path.join(app.config['UPLOAD_FOLDER'], 'temp_mask.png')
+            mask_file.save(mask_path)
+        # Inicializar cliente OpenAI
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return jsonify({"success": False, "error": "API key no definida"}), 500
+        openai.api_key = api_key
+        client = openai.OpenAI(api_key=api_key)
+        # Llamar a la API de edición indicando máscara si la hay
+        kwargs = {
+            'model': 'dall-e-2',
+            'image': open(temp_path, 'rb'),
+            'prompt': prompt,
+            'size': '1024x1024',
+            'n': 1
+        }
+        if mask_file:
+            kwargs['mask'] = open(mask_path, 'rb')
+        response = client.images.edit(**kwargs)
+        urls = [d.url for d in response.data]
+        return jsonify({"success": True, "images": urls})
+    except Exception as e:
+        print("Error IA editar imagen:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+    
+@app.route('/api/tienda/export-pdf', methods=['GET'])
+def export_tienda_pdf_by_owner():
+    responsable = (request.args.get('responsable') or '').strip()
+    rif = (request.args.get('rif') or '').strip()
+    template = request.args.get('template', 'default')
+    if not responsable or not rif:
+        return jsonify({"success": False, "error": "Responsable y RIF son requeridos"}), 400
+    # Buscar tiendas por responsable (case-insensitive)
+    tiendas = Tienda.query.filter(func.lower(Tienda.responsable) == responsable.lower()).all()
+    if not tiendas:
+        return jsonify({"success": False, "error": "Tienda no encontrada"}), 404
+    # Normalizar RIF comparando solo dígitos
+    def normalize_rif(r):
+        return re.sub(r"\D", "", r or "")
+    ingreso_digits = normalize_rif(rif)
+    tienda = None
+    for t in tiendas:
+        if normalize_rif(t.rif) == ingreso_digits:
+            tienda = t
+            break
+    if not tienda:
+        return jsonify({"success": False, "error": "Tienda no encontrada"}), 404
+    productos = Producto.query.filter_by(tienda_id=tienda.id).all()
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setTitle(f"Tienda_{tienda.nombre}")
+    y = 750
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(50, y, f"Tienda: {tienda.nombre}")
+    y -= 30
+    pdf.setFont("Helvetica", 12)
+    pdf.drawString(50, y, f"Responsable: {tienda.responsable}")
+    y -= 20
+    pdf.drawString(50, y, f"Contacto: {tienda.telefono or ''} | {tienda.email or ''}")
+    y -= 30
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, y, "Productos:")
+    y -= 20
+    pdf.setFont("Helvetica", 12)
+    for prod in productos:
+        if y < 50:
+            pdf.showPage()
+            y = 750
+        pdf.drawString(60, y, f"- {prod.nombre}: {prod.precio}")
+        y -= 20
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"{tienda.slug}.pdf",
+        mimetype='application/pdf'
+    )
+
+# Endpoint para obtener datos de tienda y productos para brochure
+@app.route('/api/tienda/brochure-data', methods=['GET'])
+def obtener_brochure_data():
+    responsable = (request.args.get('responsable') or '').strip()
+    rif = (request.args.get('rif') or '').strip()
+    if not responsable or not rif:
+        return jsonify({"success": False, "error": "Responsable y RIF son requeridos"}), 400
+    tiendas = Tienda.query.filter(func.lower(Tienda.responsable) == responsable.lower()).all()
+    if not tiendas:
+        return jsonify({"success": False, "error": "Tienda no encontrada"}), 404
+    def normalize_rif(r):
+        return re.sub(r"\D", "", r or "")
+    ingreso_digits = normalize_rif(rif)
+    tienda = next((t for t in tiendas if normalize_rif(t.rif) == ingreso_digits), None)
+    if not tienda:
+        return jsonify({"success": False, "error": "Tienda no encontrada"}), 404
+    productos = Producto.query.filter_by(tienda_id=tienda.id).all()
+    lista = [{"id": p.id, "nombre": p.nombre, "descripcion": p.descripcion, "precio": p.precio} for p in productos]
+    tienda_info = {"nombre": tienda.nombre, "slug": tienda.slug}
+    return jsonify({"success": True, "tienda": tienda_info, "productos": lista})
+
+# Endpoint para generar brochure con IA
+@app.route('/api/tienda/export-brochure', methods=['POST'])
+def export_brochure():
+    responsable = (request.form.get('responsable') or '').strip()
+    rif = (request.form.get('rif') or '').strip()
+    template = request.form.get('template', 'default')
+    description = request.form.get('description', '').strip()
+    product_ids = request.form.getlist('product_ids')
+    if not responsable or not rif:
+        return jsonify({"success": False, "error": "Responsable y RIF son requeridos"}), 400
+    tiendas = Tienda.query.filter(func.lower(Tienda.responsable) == responsable.lower()).all()
+    if not tiendas:
+        return jsonify({"success": False, "error": "Tienda no encontrada"}), 404
+    def normalize_rif(r):
+        return re.sub(r"\D", "", r or "")
+    ingreso_digits = normalize_rif(rif)
+    tienda = next((t for t in tiendas if normalize_rif(t.rif) == ingreso_digits), None)
+    if not tienda:
+        return jsonify({"success": False, "error": "Tienda no encontrada"}), 404
+    # Obtener productos seleccionados o todos
+    if product_ids:
+        productos = Producto.query.filter(Producto.tienda_id == tienda.id, Producto.id.in_(product_ids)).all()
+    else:
+        productos = Producto.query.filter_by(tienda_id=tienda.id).all()
+    product_lines = [f"{p.nombre}: {p.descripcion} (Precio: {p.precio})" for p in productos]
+    prompt = (
+        f"Crea un brochure profesional en formato markdown tipo '{template}' para la tienda '{tienda.nombre}'. "
+        f"Incluye esta introducción: {description}. "
+        "Describe cada producto con un párrafo persuasivo. "
+        "Lista los productos a continuación con sus descripciones y precios:\n"
+        + "\n".join(product_lines)
+    )
+    try:
+        openai.api_key = os.getenv("OPENAI_API_KEY")
+        client = openai.OpenAI()
+        chat = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un experto redactor de marketing, especializado en crear brochures atractivos."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        content = chat.choices[0].message.content
+    except Exception as e:
+        print("Error IA brochure:", e)
+        content = ""
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    y = 750
+    pdf.setTitle(f"Brochure_{tienda.slug}")
+    for line in content.splitlines():
+        if line.startswith('# '):
+            pdf.setFont("Helvetica-Bold", 18)
+            text = line[2:]
+        elif line.startswith('## '):
+            pdf.setFont("Helvetica-Bold", 14)
+            text = line[3:]
+        elif line.startswith('- '):
+            pdf.setFont("Helvetica", 12)
+            text = u"\u2022 " + line[2:]
+        else:
+            pdf.setFont("Helvetica", 12)
+            text = line
+        pdf.drawString(50, y, text)
+        y -= 18
+        if y < 50:
+            pdf.showPage()
+            y = 750
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"Brochure_{tienda.slug}.pdf",
+        mimetype='application/pdf'
+    )
+@app.route('/api/tienda/<slug>/export-pdf', methods=['GET'])
+def export_tienda_pdf(slug):
+    tienda = Tienda.query.filter_by(slug=slug).first()
+    if not tienda:
+        return jsonify({"success": False, "error": "Tienda no encontrada"}), 404
+    productos = Producto.query.filter_by(tienda_id=tienda.id).all()
+    # Generar PDF en memoria
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=letter)
+    pdf.setTitle(f"Tienda_{tienda.nombre}")
+    y = 750
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(50, y, f"Tienda: {tienda.nombre}")
+    y -= 30
+    pdf.setFont("Helvetica", 12)
+    pdf.drawString(50, y, f"Responsable: {tienda.responsable}")
+    y -= 20
+    pdf.drawString(50, y, f"Contacto: {tienda.telefono} | {tienda.email}")
+    y -= 30
+    pdf.setFont("Helvetica-Bold", 14)
+    pdf.drawString(50, y, "Productos:")
+    y -= 20
+    pdf.setFont("Helvetica", 12)
+    for prod in productos:
+        if y < 50:
+            pdf.showPage()
+            y = 750
+        pdf.drawString(60, y, f"- {prod.nombre}: {prod.precio}")
+        y -= 20
+    pdf.showPage()
+    pdf.save()
+    buffer.seek(0)
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name=f"{slug}.pdf",
+        mimetype='application/pdf'
+    )
 
 # ───── MAIN ─────
 if __name__ == '__main__':
